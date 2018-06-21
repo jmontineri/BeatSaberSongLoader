@@ -1,10 +1,10 @@
-# BeatSaberSongLoader
-A plugin for adding custom songs into Beat Saber.
+# BeatSaberSongLoader - Playlist fork
+A fork of xyonico's plugin for adding custom songs into Beat Saber. This version allows for user-defined playlists using BeatDrop's format (to be released).
 
 *This mod works on both the Steam and Oculus Store versions.*
 
 ## Installation Instructions
- 1. Download the latest release from here: https://github.com/xyonico/BeatSaberSongLoader/releases
+ 1. Download the latest release from here: https://github.com/jmontineri/BeatSaberSongLoader/releases
  2. Extract the .zip file into the `Oculus Apps\Software\hyperbolic-magnetism-beat-saber` for Oculus Home OR `steamapps\common\Beat Saber` for Steam. (The one with Beat Saber.exe)
   
     The Beat Saber folder should look something like this:
@@ -21,10 +21,13 @@ A plugin for adding custom songs into Beat Saber.
 
 ## Usage
  1. Launch Beat Saber through the platform you purchased it on.	
- 2. Go to 'Solo' -> 'Standard' and your custom song will be available to play at the bottom of the list.	
+ 2. Use BeatDrop to generate a playlist
+ 3. Go to 'Solo' -> 'Standard' and the content of the playlist will be listed and ready to play below the official songs.
 
 
 ## Installing Custom Songs
+The process is the same as xyonico's version/
+
 The following files must be placed within their own folder inside the "CustomSongs" folder.
 
     Required files:
@@ -91,4 +94,4 @@ All possible environmentNames:
 # Keyboard Shortcuts
 *(Make sure Beat Saber's window is in focus when using these shortcuts)*
 ---
- * Press <kbd>R</kbd> when in main menu to update song list for rapid testing.
+ * Press <kbd>R</kbd> when in main menu to update song list and refresh the active playlist.
