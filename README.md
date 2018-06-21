@@ -95,3 +95,7 @@ All possible environmentNames:
 *(Make sure Beat Saber's window is in focus when using these shortcuts)*
 ---
  * Press <kbd>R</kbd> when in main menu to update song list and refresh the active playlist.
+
+#License information
+
+License information can be found in LICENSE.md. Original author is www.github.com/xyonico.
