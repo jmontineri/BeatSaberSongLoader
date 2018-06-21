@@ -76,12 +76,77 @@ namespace SongLoaderPlugin
             }
         }
 
+        private List<CustomSongInfo> FilterByPlaylist(List<CustomSongInfo> songList, List<string> playlist)
+        {
+            var filteredList = new List<CustomSongInfo>();
+            foreach(CustomSongInfo song in songList)
+            {
+                Log(song.songName);
+                if (playlist.Contains(song.songName))
+                {
+                    Log("OK: song.songName");
+                    filteredList.Add(song);
+                }
+            }
+
+            return filteredList.OrderBy(song =>
+            {
+                string name = song.songName;
+                for(int i = 0; i < playlist.Count; i++)
+                {
+                    if (name == playlist[i])
+                        return i;
+                }
+                return 0;
+            }).ToList();
+        }
+
+        private List<string> GetPlaylist()
+        {
+            var playlistFiles = Directory.GetFiles(Environment.CurrentDirectory + "/CustomSongs/", "playlist.json", SearchOption.TopDirectoryOnly);
+            if(playlistFiles.Length == 0)
+            {
+                return null;
+            }
+            else
+            {
+                var playlistString = File.ReadAllText(playlistFiles[0]); // For now only support 1 playlist, this will change
+                JSONNode playlist;
+                try
+                {
+                    playlist = JSON.Parse(playlistString)["songs"];
+                    var ret = new List<string>();
+                    foreach(JSONNode node in playlist.AsArray)
+                    {
+                        ret.Add(node["songName"].Value);
+                    }
+                    return ret;
+                }
+                catch (Exception)
+                {
+                    Log("Error parsing playlist file: " + playlistFiles[0]);
+                    return null;
+                }
+            }
+
+        }
+
         public void RefreshSongs()
         {
             if (SceneManager.GetActiveScene().buildIndex != MenuIndex) return;
             Log("Refreshing songs");
             var songs = RetrieveAllSongs();
-            songs = songs.OrderBy(x => x.songName).ToList();
+
+            var playlist = GetPlaylist();
+
+            if(playlist == null)
+            {
+                songs = songs.OrderBy(x => x.songName).ToList();
+            }
+            else
+            {
+                songs = FilterByPlaylist(songs, playlist);
+            }
 
             var gameScenesManager = Resources.FindObjectsOfTypeAll<GameScenesManager>().FirstOrDefault();
 
@@ -350,6 +415,7 @@ namespace SongLoaderPlugin
         {
             Debug.Log("Song Loader: " + message);
             Console.WriteLine("Song Loader: " + message);
+            File.AppendText(Environment.CurrentDirectory + "\\log.log").WriteLine(message);
         }
 
         private void Update()
