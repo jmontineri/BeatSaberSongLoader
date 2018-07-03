@@ -39,11 +39,9 @@
     <Reference Include="IllusionPlugin, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>..\..\IPA\IllusionPlugin\bin\Release\IllusionPlugin.dll</HintPath>
     </Reference>
-    <Reference Include="System" />
     <Reference Include="System, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
       <HintPath>D:\SteamLibrary\steamapps\common\Beat Saber\Beat Saber_Data\Managed\System.dll</HintPath>
     </Reference>
-    <Reference Include="System.Core" />
     <Reference Include="System.Core, Version=3.5.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
       <HintPath>D:\SteamLibrary\steamapps\common\Beat Saber\Beat Saber_Data\Managed\System.Core.dll</HintPath>
     </Reference>
