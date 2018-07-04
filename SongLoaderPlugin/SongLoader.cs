@@ -146,28 +146,29 @@ namespace SongLoaderPlugin
 
             var songs = RetrieveAllSongs();
             var playlist = GetPlaylist();
-
-            if(playlist == null)
-            {
-                songs = songs.OrderBy(x => x.songName).ToList();
-            }
-            else
-            {
-                songs = FilterByPlaylist(songs, playlist);
-            }
+            List<LevelStaticData> newLevelData;
 
             var gameScenesManager = Resources.FindObjectsOfTypeAll<GameScenesManager>().FirstOrDefault();
 
             var gameDataModel = PersistentSingleton<GameDataModel>.instance;
-            if (OriginalLevelStaticDatas.Count == 0)
+
+            if(playlist == null)
             {
-                foreach (var level in gameDataModel.gameStaticData.worldsData[0].levelsData.ToList())
+                if (OriginalLevelStaticDatas.Count == 0)
                 {
-                    OriginalLevelStaticDatas.Add(level);
+                    foreach (var level in gameDataModel.gameStaticData.worldsData[0].levelsData.ToList())
+                    {
+                        OriginalLevelStaticDatas.Add(level);
+                    }
                 }
+                songs = songs.OrderBy(x => x.songName).ToList();
+                newLevelData = new List<LevelStaticData>(OriginalLevelStaticDatas);
             }
-            //var newLevelData = new List<LevelStaticData>(OriginalLevelStaticDatas);
-            var newLevelData = new List<LevelStaticData>();
+            else
+            {
+                songs = FilterByPlaylist(songs, playlist);
+                newLevelData = new List<LevelStaticData>();
+            }
 
             if (fullRefresh)
             {
@@ -476,7 +477,6 @@ namespace SongLoaderPlugin
         {
             Debug.Log("Song Loader: " + message);
             Console.WriteLine("Song Loader: " + message);
-            File.AppendText(Environment.CurrentDirectory + "\\log.log").WriteLine(message);
         }
 
         private void Update()
