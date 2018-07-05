@@ -121,7 +121,7 @@ namespace SongLoaderPlugin.Internals
 
 			public void UpdateWithBlock(byte[] buffer, int numberOfBytes)
 			{
-				for (var i = 0; i < numberOfBytes; i++)
+				for (int i = 0; i < numberOfBytes; i++)
 				{
 					crcValue = (crcValue >> 8) ^ Crc32Table[buffer[i] ^ crcValue & 0xff];
 				}
@@ -223,11 +223,11 @@ namespace SongLoaderPlugin.Internals
 		{
 			for (int index = 0; index < Entries.Length; index++)
 			{
-				var entry = Entries[index];
+				Entry entry = Entries[index];
 
 				// create target directory for the file
-				var fileName = Path.Combine(directoryName, entry.Name);
-				var dirName = Path.GetDirectoryName(fileName);
+				string fileName = Path.Combine(directoryName, entry.Name);
+				string dirName = Path.GetDirectoryName(fileName);
 				Directory.CreateDirectory(dirName);
 
 				// save file if it is not only a directory
@@ -236,7 +236,7 @@ namespace SongLoaderPlugin.Internals
 					Extract(entry.Name, fileName);
 				}
 
-				var extractProgress = ExtractProgress;
+				EventHandler<FileProgressEventArgs> extractProgress = ExtractProgress;
 				if (extractProgress != null)
 				{
 					extractProgress(this, new FileProgressEventArgs(index + 1, Entries.Length, entry.Name));
@@ -251,14 +251,14 @@ namespace SongLoaderPlugin.Internals
 		/// <param name="outputFileName">Name of the output file.</param>
 		public void Extract(string fileName, string outputFileName)
 		{
-			var entry = GetEntry(fileName);
+			Entry entry = GetEntry(fileName);
 
-			using (var outStream = File.Create(outputFileName))
+			using (FileStream outStream = File.Create(outputFileName))
 			{
 				Extract(entry, outStream);
 			}
 
-			var fileInfo = new FileInfo(outputFileName);
+			FileInfo fileInfo = new FileInfo(outputFileName);
 			if (fileInfo.Length != entry.OriginalSize)
 			{
 				throw new InvalidDataException(string.Format(
@@ -272,7 +272,7 @@ namespace SongLoaderPlugin.Internals
 		private Entry GetEntry(string fileName)
 		{
 			fileName = fileName.Replace("\\", "/").Trim().TrimStart('/');
-			var entry = Entries.FirstOrDefault(e => e.Name == fileName);
+			Entry entry = Entries.FirstOrDefault(e => e.Name == fileName);
 
 			if (entry == null)
 			{
@@ -309,22 +309,22 @@ namespace SongLoaderPlugin.Internals
 
 			// move to file data
 			Stream.Seek(entry.DataOffset, SeekOrigin.Begin);
-			var inputStream = Stream;
+			Stream inputStream = Stream;
 			if (entry.Deflated)
 			{
 				inputStream = new DeflateStream(Stream, CompressionMode.Decompress, true);
 			}
 
 			// allocate buffer, prepare for CRC32 calculation
-			var count = entry.OriginalSize;
-			var bufferSize = Math.Min(BufferSize, entry.OriginalSize);
-			var buffer = new byte[bufferSize];
-			var crc32Calculator = new Crc32Calculator();
+			int count = entry.OriginalSize;
+			int bufferSize = Math.Min(BufferSize, entry.OriginalSize);
+			byte[] buffer = new byte[bufferSize];
+			Crc32Calculator crc32Calculator = new Crc32Calculator();
 
 			while (count > 0)
 			{
 				// decompress data
-				var read = inputStream.Read(buffer, 0, bufferSize);
+				int read = inputStream.Read(buffer, 0, bufferSize);
 				if (read == 0)
 				{
 					break;
@@ -397,9 +397,9 @@ namespace SongLoaderPlugin.Internals
 
 			// read directory properties
 			Stream.Seek(6, SeekOrigin.Current);
-			var entries = Reader.ReadUInt16();
-			var difSize = Reader.ReadInt32();
-			var dirOffset = Reader.ReadUInt32();
+			ushort entries = Reader.ReadUInt16();
+			int difSize = Reader.ReadInt32();
+			uint dirOffset = Reader.ReadUInt32();
 			Stream.Seek(dirOffset, SeekOrigin.Begin);
 
 			// read directory entries
@@ -425,13 +425,13 @@ namespace SongLoaderPlugin.Internals
 				int headerOffset = Reader.ReadInt32();
 				Reader.ReadInt32();
 				int fileHeaderOffset = Reader.ReadInt32();
-				var fileNameBytes = Reader.ReadBytes(fileNameSize);
+				byte[] fileNameBytes = Reader.ReadBytes(fileNameSize);
 				Stream.Seek(extraSize, SeekOrigin.Current);
-				var fileCommentBytes = Reader.ReadBytes(commentSize);
-				var fileDataOffset = CalculateFileDataOffset(fileHeaderOffset);
+				byte[] fileCommentBytes = Reader.ReadBytes(commentSize);
+				int fileDataOffset = CalculateFileDataOffset(fileHeaderOffset);
 
 				// decode zip file entry
-				var encoder = utf8 ? Encoding.UTF8 : Encoding.Default;
+				Encoding encoder = utf8 ? Encoding.UTF8 : Encoding.Default;
 				yield return new Entry
 				{
 					Name = encoder.GetString(fileNameBytes),
@@ -449,12 +449,12 @@ namespace SongLoaderPlugin.Internals
 
 		private int CalculateFileDataOffset(int fileHeaderOffset)
 		{
-			var position = Stream.Position;
+			long position = Stream.Position;
 			Stream.Seek(fileHeaderOffset + 26, SeekOrigin.Begin);
-			var fileNameSize = Reader.ReadInt16();
-			var extraSize = Reader.ReadInt16();
+			short fileNameSize = Reader.ReadInt16();
+			short extraSize = Reader.ReadInt16();
 
-			var fileOffset = (int)Stream.Position + fileNameSize + extraSize;
+			int fileOffset = (int)Stream.Position + fileNameSize + extraSize;
 			Stream.Seek(position, SeekOrigin.Begin);
 			return fileOffset;
 		}

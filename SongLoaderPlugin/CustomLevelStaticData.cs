@@ -14,9 +14,15 @@ namespace SongLoaderPlugin
 	
 	public class CustomLevelStaticData : LevelStaticData
 	{
+	    public class CustomDifficultyLevel : DifficultyLevel
+	    {
+	        public string jsonPath;
+	        public string audioPath;
+	    }
+
 		public override DifficultyLevel GetDifficultyLevel(Difficulty difficulty)
 		{
-			foreach (var difficultyLevel in _difficultyLevels)
+			foreach (DifficultyLevel difficultyLevel in _difficultyLevels)
 			{
 				if (difficultyLevel.difficulty == difficulty)
 				{

@@ -6,20 +6,20 @@ namespace SongLoaderPlugin
 	{
 		public static void SetPrivateField(object obj, string fieldName, object value)
 		{
-			var prop = obj.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+			FieldInfo prop = obj.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
 			prop.SetValue(obj, value);
 		}
 		
 		public static T GetPrivateField<T>(object obj, string fieldName)
 		{
-			var prop = obj.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
-			var value = prop.GetValue(obj);
+			FieldInfo prop = obj.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+			object value = prop.GetValue(obj);
 			return (T) value;
 		}
 		
 		public static void SetPrivateProperty(object obj, string propertyName, object value)
 		{
-			var prop = obj.GetType().GetProperty(propertyName, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+			PropertyInfo prop = obj.GetType().GetProperty(propertyName, BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
 			prop.SetValue(obj, value, null);
 		}
 

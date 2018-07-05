@@ -18,13 +18,13 @@ namespace SongLoaderPlugin
 		public static string CreateMD5FromString(string input)
 		{
 			// Use input string to calculate MD5 hash
-			using (var md5 = MD5.Create())
+			using (MD5 md5 = MD5.Create())
 			{
-				var inputBytes = Encoding.ASCII.GetBytes(input);
-				var hashBytes = md5.ComputeHash(inputBytes);
+				byte[] inputBytes = Encoding.ASCII.GetBytes(input);
+				byte[] hashBytes = md5.ComputeHash(inputBytes);
 
 				// Convert the byte array to hexadecimal string
-				var sb = new StringBuilder();
+				StringBuilder sb = new StringBuilder();
 				for (int i = 0; i < hashBytes.Length; i++)
 				{
 					sb.Append(hashBytes[i].ToString("X2"));
@@ -37,15 +37,15 @@ namespace SongLoaderPlugin
 		{
 			hash = "";
 			if (!File.Exists(path)) return false;
-			using (var md5 = MD5.Create())
+			using (MD5 md5 = MD5.Create())
 			{
-				using (var stream = File.OpenRead(path))
+				using (FileStream stream = File.OpenRead(path))
 				{
-					var hashBytes = md5.ComputeHash(stream);
+					byte[] hashBytes = md5.ComputeHash(stream);
 
 					// Convert the byte array to hexadecimal string
-					var sb = new StringBuilder();
-					foreach (var hashByte in hashBytes)
+					StringBuilder sb = new StringBuilder();
+					foreach (byte hashByte in hashBytes)
 					{
 						sb.Append(hashByte.ToString("X2"));
 					}

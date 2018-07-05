@@ -13,7 +13,7 @@ namespace SongLoaderPlugin
 
 		public string Version
 		{
-			get { return "v3.1"; }
+			get { return "4.0-alpha"; }
 		}
 		
 		public void OnApplicationStart()
