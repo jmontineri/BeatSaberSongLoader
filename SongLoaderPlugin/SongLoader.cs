@@ -81,15 +81,25 @@ namespace SongLoaderPlugin
                 CustomLevelStaticData song = CustomLevelStaticDatas.FirstOrDefault(x => x.levelId == songListViewController.levelId);
                 if (song == null) return;
 
-                foreach (CustomLevelStaticData.CustomDifficultyLevel difficultyLevel in song.difficultyLevels)
+                if (!song.wasLoaded)
                 {
-                    StartCoroutine(LoadAudio("file://" + difficultyLevel.audioPath, difficultyLevel,
-                        "_audioClip"));
-                    ReflectionUtil.SetPrivateField(difficultyLevel, "_songLevelData",
-                        ParseDifficulty(difficultyLevel.jsonPath));
-                    Logger.Log(difficultyLevel.songLevelData.songData.BeatsPerMinute.ToString());
+                    CustomSongInfo info = CustomSongInfo.FromPath(song.jsonPath);
+                    if (info.GetIdentifier() != song.levelId)
+                    {
+                        Logger.Log("The song data doesn't match, please regenerate the database");
+                        throw new Exception("Song was modified");
+                    }
+
+                    foreach (CustomLevelStaticData.CustomDifficultyLevel difficultyLevel in song.difficultyLevels)
+                    {
+                        StartCoroutine(LoadAudio("file://" + difficultyLevel.audioPath, difficultyLevel,
+                            "_audioClip"));
+                        ReflectionUtil.SetPrivateField(difficultyLevel, "_songLevelData",
+                            ParseDifficulty(difficultyLevel.jsonPath));
+                    }
+                    Logger.Log(songListViewController.levelId);
+                    song.wasLoaded = true;
                 }
-                Logger.Log(songListViewController.levelId);
 
                 if (song.difficultyLevels.All(x => x.difficulty != _songSelectionView.difficulty))
                 {
@@ -160,7 +170,6 @@ namespace SongLoaderPlugin
                     return null;
                 }
             }
-
         }
 
         // Parameterless call to not break other mods
@@ -266,6 +275,7 @@ namespace SongLoaderPlugin
             try
             {
                 newLevel = ScriptableObject.CreateInstance<CustomLevelStaticData>();
+                newLevel.jsonPath = song.path;
             }
             catch (NullReferenceException)
             {

@@ -36,15 +36,7 @@ namespace SongLoaderPlugin
 
         public List<CustomSongInfo> GetSongs()
         {
-            try
-            {
-                return GetSongs("ORDER BY upper(songName);");
-            }
-            catch (Exception e)
-            {
-                Logger.Log(e.ToString());
-            }
-            return null;
+            return GetSongs("ORDER BY upper(songName);");
         }
 
         public List<CustomSongInfo> GetSongs(string filter)
@@ -58,7 +50,7 @@ namespace SongLoaderPlugin
                 DbDataReader reader = getSongs.ExecuteReader();
                 while (reader.Read())
                 {
-                    Logger.Log(reader.GetString(7));
+                    Logger.Log(reader.GetString(6));
                     CustomSongInfo info = new CustomSongInfo()
                     {
                         difficultyLevels = GetDiffs((ulong)reader.GetInt64(0)).ToArray(),
