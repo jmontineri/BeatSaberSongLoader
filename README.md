@@ -1,5 +1,5 @@
 # BeatSaberSongLoader - Playlist fork
-A fork of xyonico's plugin for adding custom songs into Beat Saber. This version allows for user-defined playlists using BeatDrop's format (to be released).
+A fork of xyonico's plugin for adding custom songs into Beat Saber. This version allows for user-defined playlists using BeatDrop's format, including the performance improvements from Taz's version of the song loader.
 
 *This mod works on both the Steam and Oculus Store versions.*
 
