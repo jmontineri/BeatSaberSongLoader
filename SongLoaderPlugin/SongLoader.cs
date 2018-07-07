@@ -81,25 +81,7 @@ namespace SongLoaderPlugin
                 CustomLevelStaticData song = CustomLevelStaticDatas.FirstOrDefault(x => x.levelId == songListViewController.levelId);
                 if (song == null) return;
 
-                if (!song.wasLoaded)
-                {
-                    CustomSongInfo info = CustomSongInfo.FromPath(song.jsonPath);
-                    if (info.GetIdentifier() != song.levelId)
-                    {
-                        Logger.Log("The song data doesn't match, please regenerate the database");
-                        throw new Exception("Song was modified");
-                    }
-
-                    foreach (CustomLevelStaticData.CustomDifficultyLevel difficultyLevel in song.difficultyLevels)
-                    {
-                        StartCoroutine(LoadAudio("file://" + difficultyLevel.audioPath, difficultyLevel,
-                            "_audioClip"));
-                        ReflectionUtil.SetPrivateField(difficultyLevel, "_songLevelData",
-                            ParseDifficulty(difficultyLevel.jsonPath));
-                    }
-                    Logger.Log(songListViewController.levelId);
-                    song.wasLoaded = true;
-                }
+                LoadIfNotLoaded(songListViewController, song);
 
                 if (song.difficultyLevels.All(x => x.difficulty != _songSelectionView.difficulty))
                 {
@@ -115,6 +97,29 @@ namespace SongLoaderPlugin
             catch (Exception e)
             {
                 Logger.Log(e.ToString());
+            }
+        }
+
+        public void LoadIfNotLoaded(SongListViewController songListViewController, CustomLevelStaticData song)
+        {
+            if (!song.wasLoaded)
+            {
+                CustomSongInfo info = CustomSongInfo.FromPath(song.jsonPath);
+                if (info.GetIdentifier() != song.levelId)
+                {
+                    Logger.Log("The song data doesn't match, please regenerate the database");
+                    throw new Exception("Song was modified");
+                }
+
+                foreach (CustomLevelStaticData.CustomDifficultyLevel difficultyLevel in song.difficultyLevels)
+                {
+                    StartCoroutine(LoadAudio("file://" + difficultyLevel.audioPath, difficultyLevel,
+                        "_audioClip"));
+                    ReflectionUtil.SetPrivateField(difficultyLevel, "_songLevelData",
+                        ParseDifficulty(difficultyLevel.jsonPath));
+                }
+                Logger.Log(songListViewController.levelId);
+                song.wasLoaded = true;
             }
         }
 

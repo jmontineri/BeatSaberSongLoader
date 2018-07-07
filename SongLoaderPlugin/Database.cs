@@ -85,16 +85,18 @@ namespace SongLoaderPlugin
             getDiffs.Parameters.Add(new SQLiteParameter("hash", hash));
 
             DbDataReader reader = getDiffs.ExecuteReader();
+            int i = 0;
             while (reader.Read())
             {
                 ret.Add(new CustomSongInfo.DifficultyLevel()
                 {
                     audioPath = reader.GetString(1),
                     difficulty = reader.GetString(2),
-                    difficultyRank = (int)reader.GetFloat(3),
+                    difficultyRank = i,
                     jsonPath = reader.GetString(4)
                 });
 
+                i++;
             }
             return ret;
         }
