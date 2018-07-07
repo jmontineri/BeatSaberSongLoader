@@ -81,7 +81,7 @@ namespace SongLoaderPlugin
                 CustomLevelStaticData song = CustomLevelStaticDatas.FirstOrDefault(x => x.levelId == songListViewController.levelId);
                 if (song == null) return;
 
-                LoadIfNotLoaded(songListViewController, song);
+                LoadIfNotLoaded(song);
 
                 if (song.difficultyLevels.All(x => x.difficulty != _songSelectionView.difficulty))
                 {
@@ -100,7 +100,7 @@ namespace SongLoaderPlugin
             }
         }
 
-        public void LoadIfNotLoaded(SongListViewController songListViewController, CustomLevelStaticData song)
+        public void LoadIfNotLoaded(CustomLevelStaticData song)
         {
             if (!song.wasLoaded)
             {
@@ -118,7 +118,6 @@ namespace SongLoaderPlugin
                     ReflectionUtil.SetPrivateField(difficultyLevel, "_songLevelData",
                         ParseDifficulty(difficultyLevel.jsonPath));
                 }
-                Logger.Log(songListViewController.levelId);
                 song.wasLoaded = true;
             }
         }
