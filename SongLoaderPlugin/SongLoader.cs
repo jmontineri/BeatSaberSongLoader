@@ -26,6 +26,12 @@ namespace SongLoaderPlugin
         private DifficultyViewController _difficultyView;
 
         private Database _database;
+
+        public Database Database
+        {
+            get { return _database; }
+        }
+
         private LevelStaticData[] _levels;
 
         public static void OnLoad()
