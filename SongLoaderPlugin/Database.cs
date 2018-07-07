@@ -16,11 +16,13 @@ namespace SongLoaderPlugin
         private readonly DbConnection conn;
         private DbCommand checkCommand;
         private DbCommand updateCommand;
+        private DbCommand updateIdCommand;
         private DbCommand updateDiffCommand;
 
         private SQLiteParameter directoryParam;
         private SQLiteParameter hashParam;
         private SQLiteParameter beatsaveridParam;
+        private SQLiteParameter newidParam;
         private SQLiteParameter leaderboardidParam;
         private SQLiteParameter bpmParam;
         private SQLiteParameter previewStartTimeParam;
@@ -62,6 +64,7 @@ namespace SongLoaderPlugin
             checkCommand = conn.CreateCommand();
             updateCommand = conn.CreateCommand();
              updateDiffCommand = conn.CreateCommand();
+            updateIdCommand = conn.CreateCommand();
 
              #region sqlite parameters
              hashParam = new SQLiteParameter("@hash");
@@ -69,6 +72,7 @@ namespace SongLoaderPlugin
 
              beatsaveridParam = new SQLiteParameter("@beatsaverid");
              leaderboardidParam = new SQLiteParameter("@leaderboardid");
+             newidParam = new SQLiteParameter("@newid");
              bpmParam = new SQLiteParameter("@bpm");
              previewStartTimeParam = new SQLiteParameter("@previewStartTime");
              previewDurationParam = new SQLiteParameter("@previewDuration");
@@ -105,6 +109,9 @@ namespace SongLoaderPlugin
             updateDiffCommand.Parameters.Add(difficultyNameParam);
             updateDiffCommand.Parameters.Add(difficultyRankParam);
             updateDiffCommand.Parameters.Add(fileNameParam);
+
+            updateIdCommand.Parameters.Add(leaderboardidParam);
+            updateIdCommand.Parameters.Add(newidParam);
             #endregion
 
             // Query to check if song exists and is in right location
@@ -116,6 +123,8 @@ namespace SongLoaderPlugin
             // Query to add or update difficulty files
             updateDiffCommand.CommandText = "update difficulties set audioPath = @audioPath, difficultyName = @difficultyName, difficultyRank = @difficultyRank where fileName = @fileName and song = @hash; insert or ignore into difficulties (song, audioPath, difficultyName, difficultyRank, fileName) values (@hash, @audioPath, @difficultyName, @difficultyRank, @fileName)";
 
+            // Query to update a leaderboard ID after the song has been edited
+            updateIdCommand.CommandText = "update songs set leaderboardid = @newid where leaderboardid = @leaderboardid;";
         }
 
         public List<CustomSongInfo> GetSongs()
@@ -266,6 +275,14 @@ namespace SongLoaderPlugin
                     updateDiffCommand.ExecuteNonQuery();
                 }
             }
+        }
+
+        public void UpdateSongID(string songLevelId, string newId)
+        {
+            leaderboardidParam.Value = songLevelId;
+            newidParam.Value = newId;
+
+            updateIdCommand.ExecuteNonQuery();
         }
     }
 }

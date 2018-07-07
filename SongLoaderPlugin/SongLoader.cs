@@ -5,6 +5,7 @@ using System.CodeDom;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using Assets.IUnified;
 using SimpleJSON;
 using SongLoaderPlugin.Internals;
 using UnityEngine.Events;
@@ -87,7 +88,12 @@ namespace SongLoaderPlugin
                 CustomLevelStaticData song = CustomLevelStaticDatas.FirstOrDefault(x => x.levelId == songListViewController.levelId);
                 if (song == null) return;
 
-                LoadIfNotLoaded(song);
+                if (!LoadIfNotLoaded(song))
+                {
+                    Logger.Log("Song was modified, updated leaderboard ID to " + song.levelId);
+                    songListViewController.SelectSong(_levels.FirstIndexWhere(data => data.levelId == song.levelId));
+                    return;
+                }
 
                 if (song.difficultyLevels.All(x => x.difficulty != _songSelectionView.difficulty))
                 {
@@ -106,16 +112,20 @@ namespace SongLoaderPlugin
             }
         }
 
-        public void LoadIfNotLoaded(CustomLevelStaticData song)
+        public bool LoadIfNotLoaded(CustomLevelStaticData song)
         {
+            string newId = CustomSongInfo.FromPath(song.jsonPath).GetIdentifier();
+            bool idMatched = newId == song.levelId;
+            if (!idMatched)
+            {
+                Logger.Log("Song has been modified, old ID was " + song.levelId + " updating song content and ID");
+                song.wasLoaded = false;
+                _database.UpdateSongID(song.levelId, newId);
+                ReflectionUtil.SetPrivateField(song, "_levelId", newId);
+            }
+
             if (!song.wasLoaded)
             {
-                CustomSongInfo info = CustomSongInfo.FromPath(song.jsonPath);
-                if (info.GetIdentifier() != song.levelId)
-                {
-                    Logger.Log("The song data doesn't match, please regenerate the database");
-                    throw new Exception("Song was modified");
-                }
 
                 foreach (CustomLevelStaticData.CustomDifficultyLevel difficultyLevel in song.difficultyLevels)
                 {
@@ -126,6 +136,7 @@ namespace SongLoaderPlugin
                 }
                 song.wasLoaded = true;
             }
+            return idMatched;
         }
 
         private List<CustomSongInfo> FilterByPlaylist(List<CustomSongInfo> songList, List<string> playlist)
