@@ -42,6 +42,7 @@ namespace SongLoaderPlugin
         }
 
         public static SongLoader Instance;
+        private bool _playlistEnabled;
 
         private void Awake()
         {
@@ -220,7 +221,7 @@ namespace SongLoaderPlugin
                 }
             }
 
-            if (playlist == null)
+            if (playlist == null || !_playlistEnabled)
             {
                 newLevelData = new List<LevelStaticData>(OriginalLevelStaticDatas);
             }
@@ -491,12 +492,28 @@ namespace SongLoaderPlugin
             return songs;
         }
 
+        public void TogglePlaylist()
+        {
+            _playlistEnabled = !_playlistEnabled;
+        }
+
+        public void TogglePlaylist(bool isEnabled)
+        {
+            _playlistEnabled = isEnabled;
+        }
+
         private void Update()
         {
             if (Input.GetKeyDown(KeyCode.R))
             {
                 if (Input.GetKey(KeyCode.LeftControl))
                     _database.UpdateSongDB(GetAllSongFolders().ToArray(), Input.GetKey(KeyCode.LeftShift));
+                RefreshSongs(true);
+            }
+
+            if (Input.GetKeyDown(KeyCode.P))
+            {
+                TogglePlaylist();
                 RefreshSongs(true);
             }
         }
