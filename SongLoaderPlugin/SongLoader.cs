@@ -33,6 +33,11 @@ namespace SongLoaderPlugin
             get { return _database; }
         }
 
+        public LevelStaticData[] Levels
+        {
+            get { return _levels; }
+        }
+
         private LevelStaticData[] _levels;
 
         public static void OnLoad()

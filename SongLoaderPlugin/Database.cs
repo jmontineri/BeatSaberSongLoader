@@ -256,11 +256,11 @@ namespace SongLoaderPlugin
                 bpmParam.Value = songInfo.beatsPerMinute;
                 previewStartTimeParam.Value = songInfo.previewStartTime;
                 previewDurationParam.Value = songInfo.previewDuration;
-                authorNameParam.Value = songInfo.authorName;
-                songNameParam.Value = songInfo.songName;
-                songSubnameParam.Value = songInfo.songSubName;
-                coverImagePathParam.Value = songInfo.coverImagePath;
-                environmentNameParam.Value = songInfo.environmentName;
+                authorNameParam.Value = songInfo.authorName ?? "";
+                songNameParam.Value = songInfo.songName ?? "";
+                songSubnameParam.Value = songInfo.songSubName ?? "";
+                coverImagePathParam.Value = songInfo.coverImagePath ?? "";
+                environmentNameParam.Value = songInfo.environmentName ?? "";
 
                 updateCommand.ExecuteNonQuery();
 
