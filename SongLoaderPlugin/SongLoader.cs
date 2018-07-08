@@ -15,18 +15,22 @@ namespace SongLoaderPlugin
 {
     public class SongLoader : MonoBehaviour
     {
+        public const int MenuIndex = 1;
         public static readonly UnityEvent SongsLoaded = new UnityEvent();
         public static readonly List<CustomSongInfo> CustomSongInfos = new List<CustomSongInfo>();
         public static readonly List<CustomLevelStaticData> CustomLevelStaticDatas = new List<CustomLevelStaticData>();
         public static readonly List<LevelStaticData> OriginalLevelStaticDatas = new List<LevelStaticData>();
 
-        public const int MenuIndex = 1;
+        public static SongLoader Instance;
 
         private LeaderboardScoreUploader _leaderboardScoreUploader;
         private SongSelectionMasterViewController _songSelectionView;
         private DifficultyViewController _difficultyView;
 
         private Database _database;
+
+        private LevelStaticData[] _levels;
+        private bool _playlistEnabled;
 
         public Database Database
         {
@@ -38,84 +42,10 @@ namespace SongLoaderPlugin
             get { return _levels; }
         }
 
-        private LevelStaticData[] _levels;
-
         public static void OnLoad()
         {
             if (Instance != null) return;
             new GameObject("Song Loader").AddComponent<SongLoader>();
-        }
-
-        public static SongLoader Instance;
-        private bool _playlistEnabled;
-
-        private void Awake()
-        {
-            Instance = this;
-
-            bool shouldScan = !File.Exists(Environment.CurrentDirectory + "\\songs.sqlite");
-            _database = new Database(Environment.CurrentDirectory);
-            if (shouldScan)
-            {
-                Logger.Log("First run, building database");
-                _database.UpdateSongDB(GetAllSongFolders().ToArray(), true);
-            }
-            RefreshSongs();
-            SceneManager.activeSceneChanged += SceneManagerOnActiveSceneChanged;
-            SceneManagerOnActiveSceneChanged(new Scene(), new Scene());
-
-            DontDestroyOnLoad(gameObject);
-        }
-
-        private void SceneManagerOnActiveSceneChanged(Scene arg0, Scene scene)
-        {
-            StartCoroutine(WaitRemoveScores());
-
-            SongListViewController songListController = Resources.FindObjectsOfTypeAll<SongListViewController>().FirstOrDefault();
-            if (songListController == null) return;
-            songListController.didSelectSongEvent += OnDidSelectSongEvent;
-
-            _songSelectionView = Resources.FindObjectsOfTypeAll<SongSelectionMasterViewController>().FirstOrDefault();
-            _difficultyView = Resources.FindObjectsOfTypeAll<DifficultyViewController>().FirstOrDefault();
-        }
-
-
-        private IEnumerator WaitRemoveScores()
-        {
-            yield return new WaitForSecondsRealtime(1f);
-            RemoveCustomScores();
-        }
-
-        //To fix the bug explained in CustomLevelStaticData.cs
-        private void OnDidSelectSongEvent(SongListViewController songListViewController)
-        {
-            try
-            {
-                CustomLevelStaticData song = CustomLevelStaticDatas.FirstOrDefault(x => x.levelId == songListViewController.levelId);
-                if (song == null) return;
-
-                if (!LoadIfNotLoaded(song))
-                {
-                    Logger.Log("Song was modified, updated leaderboard ID to " + song.levelId);
-                    songListViewController.SelectSong(_levels.FirstIndexWhere(data => data.levelId == song.levelId));
-                    return;
-                }
-
-                if (song.difficultyLevels.All(x => x.difficulty != _songSelectionView.difficulty))
-                {
-                    bool isDiffSelected =
-                        ReflectionUtil.GetPrivateField<bool>(_difficultyView, "_difficultySelected");
-                    if (!isDiffSelected) return;
-                    //The new selected song does not have the current difficulty selected
-                    LevelStaticData.DifficultyLevel firstDiff = song.difficultyLevels.FirstOrDefault();
-                    if (firstDiff == null) return;
-                    ReflectionUtil.SetPrivateField(_songSelectionView, "_difficulty", firstDiff.difficulty);
-                }
-            }
-            catch (Exception e)
-            {
-                Logger.Log(e.ToString());
-            }
         }
 
         public bool LoadIfNotLoaded(CustomLevelStaticData song)
@@ -132,7 +62,6 @@ namespace SongLoaderPlugin
 
             if (!song.wasLoaded)
             {
-
                 foreach (CustomLevelStaticData.CustomDifficultyLevel difficultyLevel in song.difficultyLevels)
                 {
                     StartCoroutine(LoadAudio("file://" + difficultyLevel.audioPath, difficultyLevel,
@@ -143,60 +72,6 @@ namespace SongLoaderPlugin
                 song.wasLoaded = true;
             }
             return idMatched;
-        }
-
-        private List<CustomSongInfo> FilterByPlaylist(List<CustomSongInfo> songList, List<string> playlist)
-        {
-            List<CustomSongInfo> filteredList = new List<CustomSongInfo>();
-            foreach (CustomSongInfo song in songList)
-            {
-                Logger.Log(song.songName);
-                if (playlist.Contains(song.songName))
-                {
-                    Logger.Log("OK: song.songName");
-                    filteredList.Add(song);
-                }
-            }
-
-            return filteredList.OrderBy(song =>
-            {
-                string name = song.songName;
-                for (int i = 0; i < playlist.Count; i++)
-                {
-                    if (name == playlist[i])
-                        return i;
-                }
-                return 0;
-            }).ToList();
-        }
-
-        private List<string> GetPlaylist()
-        {
-            string[] playlistFiles = Directory.GetFiles(Environment.CurrentDirectory + "/CustomSongs/", "playlist.json", SearchOption.TopDirectoryOnly);
-            if (playlistFiles.Length == 0)
-            {
-                return null;
-            }
-            else
-            {
-                string playlistString = File.ReadAllText(playlistFiles[0]); // For now only support 1 playlist, this will change
-                JSONNode playlist;
-                try
-                {
-                    playlist = JSON.Parse(playlistString)["songs"];
-                    List<string> ret = new List<string>();
-                    foreach (JSONNode node in playlist.AsArray)
-                    {
-                        ret.Add(node["songName"].Value);
-                    }
-                    return ret;
-                }
-                catch (Exception)
-                {
-                    Logger.Log("Error parsing playlist file: " + playlistFiles[0]);
-                    return null;
-                }
-            }
         }
 
         // Parameterless call to not break other mods
@@ -296,6 +171,143 @@ namespace SongLoaderPlugin
             SongsLoaded.Invoke();
         }
 
+        public void TogglePlaylist()
+        {
+            _playlistEnabled = !_playlistEnabled;
+        }
+
+        public void TogglePlaylist(bool isEnabled)
+        {
+            _playlistEnabled = isEnabled;
+        }
+
+        private void Awake()
+        {
+            Instance = this;
+
+            bool shouldScan = !File.Exists(Environment.CurrentDirectory + "\\songs.sqlite");
+            _database = new Database(Environment.CurrentDirectory);
+            if (shouldScan)
+            {
+                Logger.Log("First run, building database");
+                _database.UpdateSongDB(GetAllSongFolders().ToArray(), true);
+            }
+            RefreshSongs();
+            SceneManager.activeSceneChanged += SceneManagerOnActiveSceneChanged;
+            SceneManagerOnActiveSceneChanged(new Scene(), new Scene());
+
+            DontDestroyOnLoad(gameObject);
+        }
+
+        private void SceneManagerOnActiveSceneChanged(Scene arg0, Scene scene)
+        {
+            StartCoroutine(WaitRemoveScores());
+
+            SongListViewController songListController = Resources.FindObjectsOfTypeAll<SongListViewController>()
+                .FirstOrDefault();
+            if (songListController == null) return;
+            songListController.didSelectSongEvent += OnDidSelectSongEvent;
+
+            _songSelectionView = Resources.FindObjectsOfTypeAll<SongSelectionMasterViewController>().FirstOrDefault();
+            _difficultyView = Resources.FindObjectsOfTypeAll<DifficultyViewController>().FirstOrDefault();
+        }
+
+
+        private IEnumerator WaitRemoveScores()
+        {
+            yield return new WaitForSecondsRealtime(1f);
+            RemoveCustomScores();
+        }
+
+        //To fix the bug explained in CustomLevelStaticData.cs
+        private void OnDidSelectSongEvent(SongListViewController songListViewController)
+        {
+            try
+            {
+                CustomLevelStaticData song =
+                    CustomLevelStaticDatas.FirstOrDefault(x => x.levelId == songListViewController.levelId);
+                if (song == null) return;
+
+                if (!LoadIfNotLoaded(song))
+                {
+                    Logger.Log("Song was modified, updated leaderboard ID to " + song.levelId);
+                    songListViewController.SelectSong(_levels.FirstIndexWhere(data => data.levelId == song.levelId));
+                    return;
+                }
+
+                if (song.difficultyLevels.All(x => x.difficulty != _songSelectionView.difficulty))
+                {
+                    bool isDiffSelected =
+                        ReflectionUtil.GetPrivateField<bool>(_difficultyView, "_difficultySelected");
+                    if (!isDiffSelected) return;
+                    //The new selected song does not have the current difficulty selected
+                    LevelStaticData.DifficultyLevel firstDiff = song.difficultyLevels.FirstOrDefault();
+                    if (firstDiff == null) return;
+                    ReflectionUtil.SetPrivateField(_songSelectionView, "_difficulty", firstDiff.difficulty);
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Log(e.ToString());
+            }
+        }
+
+        private List<CustomSongInfo> FilterByPlaylist(List<CustomSongInfo> songList, List<string> playlist)
+        {
+            List<CustomSongInfo> filteredList = new List<CustomSongInfo>();
+            foreach (CustomSongInfo song in songList)
+            {
+                Logger.Log(song.songName);
+                if (playlist.Contains(song.songName))
+                {
+                    Logger.Log("OK: song.songName");
+                    filteredList.Add(song);
+                }
+            }
+
+            return filteredList.OrderBy(song =>
+            {
+                string name = song.songName;
+                for (int i = 0; i < playlist.Count; i++)
+                {
+                    if (name == playlist[i])
+                        return i;
+                }
+                return 0;
+            }).ToList();
+        }
+
+        private List<string> GetPlaylist()
+        {
+            string[] playlistFiles = Directory.GetFiles(Environment.CurrentDirectory + "/CustomSongs/", "playlist.json",
+                SearchOption.TopDirectoryOnly);
+            if (playlistFiles.Length == 0)
+            {
+                return null;
+            }
+            else
+            {
+                string playlistString =
+                    File.ReadAllText(playlistFiles[0]); // For now only support 1 playlist, this will change
+                JSONNode playlist;
+                try
+                {
+                    playlist = JSON.Parse(playlistString)["songs"];
+                    List<string> ret = new List<string>();
+                    foreach (JSONNode node in playlist.AsArray)
+                    {
+                        ret.Add(node["songName"].Value);
+                    }
+                    return ret;
+                }
+                catch (Exception)
+                {
+                    Logger.Log("Error parsing playlist file: " + playlistFiles[0]);
+                    return null;
+                }
+            }
+        }
+
         private CustomLevelStaticData LoadNewSong(CustomSongInfo song, GameScenesManager gameScenesManager)
         {
             CustomLevelStaticData newLevel = null;
@@ -324,13 +336,16 @@ namespace SongLoaderPlugin
 
             ReflectionUtil.SetPrivateField(newLevel, "_environmetSceneInfo", newSceneInfo);
 
-            List<CustomLevelStaticData.CustomDifficultyLevel> difficultyLevels = new List<CustomLevelStaticData.CustomDifficultyLevel>();
+            List<CustomLevelStaticData.CustomDifficultyLevel> difficultyLevels =
+                new List<CustomLevelStaticData.CustomDifficultyLevel>();
             foreach (CustomSongInfo.DifficultyLevel diffLevel in song.difficultyLevels)
             {
-                CustomLevelStaticData.CustomDifficultyLevel newDiffLevel = new CustomLevelStaticData.CustomDifficultyLevel();
+                CustomLevelStaticData.CustomDifficultyLevel newDiffLevel =
+                    new CustomLevelStaticData.CustomDifficultyLevel();
                 try
                 {
-                    LevelStaticData.Difficulty difficulty = diffLevel.difficulty.ToEnum(LevelStaticData.Difficulty.Normal);
+                    LevelStaticData.Difficulty difficulty =
+                        diffLevel.difficulty.ToEnum(LevelStaticData.Difficulty.Normal);
                     ReflectionUtil.SetPrivateField(newDiffLevel, "_difficulty", difficulty);
                     ReflectionUtil.SetPrivateField(newDiffLevel, "_difficultyRank", diffLevel.difficultyRank);
 
@@ -495,16 +510,6 @@ namespace SongLoaderPlugin
                 }
             }
             return songs;
-        }
-
-        public void TogglePlaylist()
-        {
-            _playlistEnabled = !_playlistEnabled;
-        }
-
-        public void TogglePlaylist(bool isEnabled)
-        {
-            _playlistEnabled = isEnabled;
         }
 
         private void Update()

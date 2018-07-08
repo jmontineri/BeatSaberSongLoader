@@ -13,6 +13,7 @@ namespace SongLoaderPlugin
     public class Database
     {
         #region Private fields
+
         private readonly DbConnection conn;
         private DbCommand checkCommand;
         private DbCommand updateCommand;
@@ -36,6 +37,7 @@ namespace SongLoaderPlugin
         private SQLiteParameter difficultyNameParam;
         private SQLiteParameter difficultyRankParam;
         private SQLiteParameter fileNameParam;
+
         #endregion
 
         public Database(string folderPath)
@@ -46,6 +48,91 @@ namespace SongLoaderPlugin
             conn.Open();
             InitializeDatabase();
             SetupCommands();
+        }
+
+        public List<CustomSongInfo> GetSongs()
+        {
+            return GetSongs("ORDER BY upper(songName);");
+        }
+
+        public List<CustomSongInfo> GetSongs(string filter)
+        {
+            List<CustomSongInfo> ret = new List<CustomSongInfo>();
+            using (DbTransaction tx = conn.BeginTransaction())
+            {
+                Logger.Log("Getting songs");
+                DbCommand getSongs = conn.CreateCommand();
+                getSongs.CommandText = "SELECT * FROM songs " + filter;
+                DbDataReader reader = getSongs.ExecuteReader();
+                while (reader.Read())
+                {
+                    Logger.Log(reader.GetString(6));
+                    CustomSongInfo info = new CustomSongInfo()
+                    {
+                        difficultyLevels = GetDiffs((ulong) reader.GetInt64(0)).ToArray(),
+                        levelId = reader.GetString(1),
+                        beatsaverId = reader.GetInt32(2),
+                        beatsPerMinute = reader.GetFloat(3),
+                        previewStartTime = reader.GetFloat(4),
+                        previewDuration = reader.GetFloat(5),
+                        path = reader.GetString(6),
+                        authorName = reader.GetString(7),
+                        songName = reader.GetString(8),
+                        songSubName = reader.GetString(9),
+                        coverImagePath = reader.GetString(10),
+                        environmentName = reader.GetString(11)
+                    };
+                    foreach (CustomSongInfo.DifficultyLevel infoDifficultyLevel in info.difficultyLevels)
+                    {
+                        Logger.Log(infoDifficultyLevel.difficulty);
+                    }
+                    ret.Add(info);
+                }
+            }
+            return ret;
+        }
+
+        public void UpdateSongDB(string[] folderNames, bool fullRescan)
+        {
+            List<ulong> hashes = new List<ulong>();
+            xxHash.Hash64 hasher = xxHash.Create64(0);
+
+            using (DbTransaction tx = conn.BeginTransaction())
+            {
+                foreach (string folder in folderNames)
+                {
+                    AddSong(folder, hasher, hashes, fullRescan);
+                }
+
+                DbCommand deleteUnusedCommand = conn.CreateCommand();
+                StringBuilder sb = new StringBuilder();
+                foreach (string folderName in folderNames)
+                {
+                    sb.Append("\"" + folderName + "\", ");
+                }
+                sb.Remove(sb.Length - 2, 2);
+                deleteUnusedCommand.CommandText =
+                    string.Format(
+                        "SELECT COUNT(hash) FROM songs WHERE directory NOT IN ({0}); DELETE from difficulties where song in (SELECT hash from songs where directory not in ({0})); delete from songs where directory not in ({0});",
+                        sb.ToString());
+                deleteUnusedCommand.Parameters.Add(new SQLiteParameter("@array", folderNames));
+                object result = deleteUnusedCommand.ExecuteScalar();
+                Logger.Log("Removed " + result.ToString() + " deleted/moved songs");
+                tx.Commit();
+            }
+        }
+
+        public void AddSong(string folder, bool forceAdd)
+        {
+            AddSong(folder, xxHash.Create64(0), new List<ulong>(), forceAdd);
+        }
+
+        public void UpdateSongID(string songLevelId, string newId)
+        {
+            leaderboardidParam.Value = songLevelId;
+            newidParam.Value = newId;
+
+            updateIdCommand.ExecuteNonQuery();
         }
 
         private void InitializeDatabase()
@@ -63,29 +150,30 @@ namespace SongLoaderPlugin
         {
             checkCommand = conn.CreateCommand();
             updateCommand = conn.CreateCommand();
-             updateDiffCommand = conn.CreateCommand();
+            updateDiffCommand = conn.CreateCommand();
             updateIdCommand = conn.CreateCommand();
 
-             #region sqlite parameters
-             hashParam = new SQLiteParameter("@hash");
-             directoryParam = new SQLiteParameter("@directory");
+            #region sqlite parameters
 
-             beatsaveridParam = new SQLiteParameter("@beatsaverid");
-             leaderboardidParam = new SQLiteParameter("@leaderboardid");
-             newidParam = new SQLiteParameter("@newid");
-             bpmParam = new SQLiteParameter("@bpm");
-             previewStartTimeParam = new SQLiteParameter("@previewStartTime");
-             previewDurationParam = new SQLiteParameter("@previewDuration");
-             authorNameParam = new SQLiteParameter("@authorName");
-             songNameParam = new SQLiteParameter("@songName");
-             songSubnameParam = new SQLiteParameter("@songSubname");
-             coverImagePathParam = new SQLiteParameter("@coverImagePath");
-             environmentNameParam = new SQLiteParameter("@environmentName");
+            hashParam = new SQLiteParameter("@hash");
+            directoryParam = new SQLiteParameter("@directory");
 
-             audioPathParam = new SQLiteParameter("@audioPath");
-             difficultyNameParam = new SQLiteParameter("@difficultyName");
-             difficultyRankParam = new SQLiteParameter("@difficultyRank");
-             fileNameParam = new SQLiteParameter("@fileName");
+            beatsaveridParam = new SQLiteParameter("@beatsaverid");
+            leaderboardidParam = new SQLiteParameter("@leaderboardid");
+            newidParam = new SQLiteParameter("@newid");
+            bpmParam = new SQLiteParameter("@bpm");
+            previewStartTimeParam = new SQLiteParameter("@previewStartTime");
+            previewDurationParam = new SQLiteParameter("@previewDuration");
+            authorNameParam = new SQLiteParameter("@authorName");
+            songNameParam = new SQLiteParameter("@songName");
+            songSubnameParam = new SQLiteParameter("@songSubname");
+            coverImagePathParam = new SQLiteParameter("@coverImagePath");
+            environmentNameParam = new SQLiteParameter("@environmentName");
+
+            audioPathParam = new SQLiteParameter("@audioPath");
+            difficultyNameParam = new SQLiteParameter("@difficultyName");
+            difficultyRankParam = new SQLiteParameter("@difficultyRank");
+            fileNameParam = new SQLiteParameter("@fileName");
 
             checkCommand.Parameters.Add(hashParam);
             checkCommand.Parameters.Add(directoryParam);
@@ -112,61 +200,23 @@ namespace SongLoaderPlugin
 
             updateIdCommand.Parameters.Add(leaderboardidParam);
             updateIdCommand.Parameters.Add(newidParam);
+
             #endregion
 
             // Query to check if song exists and is in right location
             checkCommand.CommandText = "select count(hash) from songs where hash = @hash and directory = @directory";
 
             // Query to add a song into the database if it isn't there yet
-            updateCommand.CommandText = "update songs set beatsaverid=@beatsaverid, leaderboardid=@leaderboardid, bpm=@bpm, previewStartTime=@previewStartTime, previewDuration=@previewDuration, directory=@directory, authorName=@authorName, songName=@songName, songSubname=@songSubname, coverImagePath=@coverImagePath, environmentName=@environmentName where hash=@hash; insert or ignore into songs (hash, beatsaverid, leaderboardid, bpm, previewStartTime, previewDuration, directory, authorName, songName, songSubname, coverImagePath, environmentName) values(@hash, @beatsaverid, @leaderboardid, @bpm, @previewStartTime, @previewDuration, @directory, @authorName, @songName, @songSubname, @coverImagePath, @environmentName);";
+            updateCommand.CommandText =
+                "update songs set beatsaverid=@beatsaverid, leaderboardid=@leaderboardid, bpm=@bpm, previewStartTime=@previewStartTime, previewDuration=@previewDuration, directory=@directory, authorName=@authorName, songName=@songName, songSubname=@songSubname, coverImagePath=@coverImagePath, environmentName=@environmentName where hash=@hash; insert or ignore into songs (hash, beatsaverid, leaderboardid, bpm, previewStartTime, previewDuration, directory, authorName, songName, songSubname, coverImagePath, environmentName) values(@hash, @beatsaverid, @leaderboardid, @bpm, @previewStartTime, @previewDuration, @directory, @authorName, @songName, @songSubname, @coverImagePath, @environmentName);";
 
             // Query to add or update difficulty files
-            updateDiffCommand.CommandText = "update difficulties set audioPath = @audioPath, difficultyName = @difficultyName, difficultyRank = @difficultyRank where fileName = @fileName and song = @hash; insert or ignore into difficulties (song, audioPath, difficultyName, difficultyRank, fileName) values (@hash, @audioPath, @difficultyName, @difficultyRank, @fileName)";
+            updateDiffCommand.CommandText =
+                "update difficulties set audioPath = @audioPath, difficultyName = @difficultyName, difficultyRank = @difficultyRank where fileName = @fileName and song = @hash; insert or ignore into difficulties (song, audioPath, difficultyName, difficultyRank, fileName) values (@hash, @audioPath, @difficultyName, @difficultyRank, @fileName)";
 
             // Query to update a leaderboard ID after the song has been edited
-            updateIdCommand.CommandText = "update songs set leaderboardid = @newid where leaderboardid = @leaderboardid;";
-        }
-
-        public List<CustomSongInfo> GetSongs()
-        {
-            return GetSongs("ORDER BY upper(songName);");
-        }
-
-        public List<CustomSongInfo> GetSongs(string filter)
-        {
-            List<CustomSongInfo> ret = new List<CustomSongInfo>();
-            using (DbTransaction tx = conn.BeginTransaction())
-            {
-                Logger.Log("Getting songs");
-                DbCommand getSongs = conn.CreateCommand();
-                getSongs.CommandText = "SELECT * FROM songs " + filter;
-                DbDataReader reader = getSongs.ExecuteReader();
-                while (reader.Read())
-                {
-                    Logger.Log(reader.GetString(6));
-                    CustomSongInfo info = new CustomSongInfo()
-                    {
-                        difficultyLevels = GetDiffs((ulong)reader.GetInt64(0)).ToArray(),
-                        levelId = reader.GetString(1),
-                        beatsaverId = reader.GetInt32(2),
-                        beatsPerMinute = reader.GetFloat(3),
-                        previewStartTime = reader.GetFloat(4),
-                        previewDuration = reader.GetFloat(5),
-                        path = reader.GetString(6),
-                        authorName = reader.GetString(7),
-                        songName = reader.GetString(8),
-                        songSubName = reader.GetString(9),
-                        coverImagePath = reader.GetString(10),
-                        environmentName = reader.GetString(11)
-                    };
-                    foreach (CustomSongInfo.DifficultyLevel infoDifficultyLevel in info.difficultyLevels)
-                    {
-                        Logger.Log(infoDifficultyLevel.difficulty);
-                    }
-                    ret.Add(info);
-                }
-            }
-            return ret;
+            updateIdCommand.CommandText =
+                "update songs set leaderboardid = @newid where leaderboardid = @leaderboardid;";
         }
 
         private List<CustomSongInfo.DifficultyLevel> GetDiffs(ulong hash)
@@ -194,39 +244,6 @@ namespace SongLoaderPlugin
             return ret;
         }
 
-        public void UpdateSongDB(string[] folderNames, bool fullRescan)
-        {
-            List<ulong> hashes = new List<ulong>();
-            xxHash.Hash64 hasher = xxHash.Create64(0);
-
-            using (DbTransaction tx = conn.BeginTransaction())
-            {
-                foreach (string folder in folderNames)
-                {
-                    AddSong(folder, hasher, hashes, fullRescan);
-                }
-
-                DbCommand deleteUnusedCommand = conn.CreateCommand();
-                StringBuilder sb = new StringBuilder();
-                foreach (string folderName in folderNames)
-                {
-                    sb.Append("\"" + folderName + "\", ");
-                }
-                sb.Remove(sb.Length - 2, 2);
-                deleteUnusedCommand.CommandText =
-                    string.Format("SELECT COUNT(hash) FROM songs WHERE directory NOT IN ({0}); DELETE from difficulties where song in (SELECT hash from songs where directory not in ({0})); delete from songs where directory not in ({0});", sb.ToString());
-                deleteUnusedCommand.Parameters.Add(new SQLiteParameter("@array", folderNames));
-                object result = deleteUnusedCommand.ExecuteScalar();
-                Logger.Log("Removed " + result.ToString() + " deleted/moved songs");
-                tx.Commit();
-            }
-        }
-
-        public void AddSong(string folder, bool forceAdd)
-        {
-            AddSong(folder, xxHash.Create64(0), new List<ulong>(), forceAdd);
-        }
-
         private void AddSong(string folder, xxHash.Hash64 hasher, List<ulong> scannedHashes, bool forceAdd)
         {
             // Hash info.json file to use as a key in the db
@@ -237,7 +254,8 @@ namespace SongLoaderPlugin
             // Ignore duplicates
             if (scannedHashes.Contains(currentHash))
             {
-                Logger.Log("The song in directory " + folder + " has a duplicate hash " + currentHash + " and was ignored");
+                Logger.Log("The song in directory " + folder + " has a duplicate hash " + currentHash +
+                           " and was ignored");
                 return;
             }
             scannedHashes.Add(currentHash);
@@ -275,14 +293,6 @@ namespace SongLoaderPlugin
                     updateDiffCommand.ExecuteNonQuery();
                 }
             }
-        }
-
-        public void UpdateSongID(string songLevelId, string newId)
-        {
-            leaderboardidParam.Value = songLevelId;
-            newidParam.Value = newId;
-
-            updateIdCommand.ExecuteNonQuery();
         }
     }
 }
