@@ -337,10 +337,68 @@ namespace SongLoaderPlugin
 			customLevel.AudioClipLoading = false;
 		}
 
-		private void RetrieveAllSongs(bool fullRefresh)
+        private List<CustomLevel> FilterByPlaylist(List<CustomLevel> songList, List<string> playlist)
+        {
+            List<CustomLevel> filteredList = new List<CustomLevel>();
+            foreach (CustomLevel level in songList)
+            {
+                Log(level.songName);
+                if (playlist.Contains(level.songName))
+                {
+                    Log("OK:" + level.songName);
+                    filteredList.Add(level);
+                }
+            }
+
+            return filteredList.OrderBy(level =>
+            {
+                string name = level.songName;
+                for (int i = 0; i < playlist.Count; i++)
+                {
+                    if (name == playlist[i])
+                        return i;
+                }
+                return 0;
+            }).ToList();
+        }
+
+        private List<string> GetPlaylist()
+        {
+            string[] playlistFiles = Directory.GetFiles(Environment.CurrentDirectory + "/CustomSongs/", "playlist.json",
+                SearchOption.TopDirectoryOnly);
+            if (playlistFiles.Length == 0)
+            {
+                return null;
+            }
+            else
+            {
+                string playlistString =
+                    File.ReadAllText(playlistFiles[0]); // For now only support 1 playlist, this will change
+                JSONNode playlist;
+                try
+                {
+                    playlist = JSON.Parse(playlistString)["songs"];
+                    List<string> ret = new List<string>();
+                    foreach (JSONNode node in playlist.AsArray)
+                    {
+                        ret.Add(node["songName"].Value);
+                    }
+                    return ret;
+                }
+                catch (Exception)
+                {
+                    Log("Error parsing playlist file: " + playlistFiles[0]);
+                    return null;
+                }
+            }
+        }
+
+        private void RetrieveAllSongs(bool fullRefresh)
 		{
 			var stopwatch = new Stopwatch();
 			var levelList = new List<CustomLevel>();
+
+            var playlist = GetPlaylist();
 
 			if (fullRefresh)
 			{
@@ -420,6 +478,13 @@ namespace SongLoaderPlugin
 							
 							var customSongInfo = GetCustomSongInfo(songPath);
 							if (customSongInfo == null) continue;
+                            // Playlist filter
+                            if (playlist == null || !playlist.Contains(customSongInfo.songName))
+                            {
+                                Log("Skipping song that isn't in playlist: " + customSongInfo.songName);
+                                continue;
+                            }
+
 							var id = customSongInfo.GetIdentifier();
 							if (CustomLevels.Any(x => x.levelID == id && x.customSongInfo != customSongInfo))
 							{
@@ -463,8 +528,18 @@ namespace SongLoaderPlugin
 				Log("Loaded " + levelList.Count + " new songs in " + stopwatch.Elapsed.Seconds + " seconds");
 				
 				CustomLevels.AddRange(levelList);
-				var orderedList = CustomLevels.OrderBy(x => x.songName);
-				CustomLevels = orderedList.ToList();
+
+                IOrderedEnumerable<CustomLevel> orderedList;
+
+                if (playlist == null)
+                {
+                    orderedList = CustomLevels.OrderBy(x => x.songName);
+                    CustomLevels = orderedList.ToList();
+                }
+                else
+                {
+                    CustomLevels = FilterByPlaylist(CustomLevels, playlist);
+                }
 
 				foreach (var customLevel in CustomLevels)
 				{	
